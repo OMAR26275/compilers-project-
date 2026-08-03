@@ -65,10 +65,7 @@ namespace JASON_Compiler
 {
     public class Token
     {
-        // Actual text from the source program
         public string lex;
-
-        // Classification of the lexeme
         public Token_Class token_type;
     }
 
@@ -82,14 +79,10 @@ namespace JASON_Compiler
 
         public Scanner()
         {
-            /*
-             * StringComparer.OrdinalIgnoreCase means that:
-             * int, INT and Int are all recognized as the same keyword.
-             */
+            // Keywords are recognized without case sensitivity.
             ReservedWords =
                 new Dictionary<string, Token_Class>(
-                    StringComparer.OrdinalIgnoreCase
-                );
+                    StringComparer.OrdinalIgnoreCase);
 
             Operators = new Dictionary<string, Token_Class>();
             Symbols = new Dictionary<string, Token_Class>();
@@ -101,50 +94,50 @@ namespace JASON_Compiler
 
         private void InitializeReservedWords()
         {
-            // Datatype keywords
+            // Datatypes
             ReservedWords.Add("int", Token_Class.Integer);
             ReservedWords.Add("float", Token_Class.Real);
             ReservedWords.Add("string", Token_Class.StringType);
 
-            // Input and output keywords
+            // Input and output
             ReservedWords.Add("read", Token_Class.Read);
             ReservedWords.Add("write", Token_Class.Write);
             ReservedWords.Add("endl", Token_Class.Endl);
 
-            // Loop keywords
+            // Repetition
             ReservedWords.Add("repeat", Token_Class.Repeat);
             ReservedWords.Add("until", Token_Class.Until);
 
-            // Conditional keywords
+            // Conditional statements
             ReservedWords.Add("if", Token_Class.If);
             ReservedWords.Add("elseif", Token_Class.ElseIf);
             ReservedWords.Add("else", Token_Class.Else);
             ReservedWords.Add("then", Token_Class.Then);
             ReservedWords.Add("end", Token_Class.End);
 
-            // Function-related keywords
+            // Functions
             ReservedWords.Add("return", Token_Class.Return);
             ReservedWords.Add("main", Token_Class.Main);
         }
 
         private void InitializeOperators()
         {
-            // Arithmetic operators
+            // Arithmetic
             Operators.Add("+", Token_Class.PlusOp);
             Operators.Add("-", Token_Class.MinusOp);
             Operators.Add("*", Token_Class.MultiplyOp);
             Operators.Add("/", Token_Class.DivideOp);
 
-            // Assignment operator
+            // Assignment
             Operators.Add(":=", Token_Class.AssignmentOp);
 
-            // Condition operators
+            // Conditions
             Operators.Add("=", Token_Class.EqualOp);
             Operators.Add("<", Token_Class.LessThanOp);
             Operators.Add(">", Token_Class.GreaterThanOp);
             Operators.Add("<>", Token_Class.NotEqualOp);
 
-            // Boolean operators
+            // Boolean
             Operators.Add("&&", Token_Class.AndOp);
             Operators.Add("||", Token_Class.OrOp);
         }
@@ -159,114 +152,100 @@ namespace JASON_Compiler
             Symbols.Add("}", Token_Class.RCurly);
         }
 
-        public void StartScanning(string SourceCode)
+        public void StartScanning(string sourceCode)
         {
             Tokens.Clear();
-            Errors.Error_List.Clear();
+            Errors.ClearErrors();
 
-            if (SourceCode == null)
+            if (sourceCode == null)
             {
-                Errors.Error_List.Add("Source code cannot be null.");
+                Errors.AddError("Source code cannot be null.");
                 JASON_Compiler.TokenStream = Tokens;
                 return;
             }
 
-            for (int i = 0; i < SourceCode.Length; i++)
+            for (int i = 0; i < sourceCode.Length; i++)
             {
-                char currentCharacter = SourceCode[i];
+                char currentCharacter = sourceCode[i];
 
-                // Ignore spaces, tabs and new lines
+                // Ignore spaces, tabs and line endings.
                 if (char.IsWhiteSpace(currentCharacter))
                 {
                     continue;
                 }
 
-                /*
-                 * Comments must be checked before the divide operator,
-                 * because both comments and division begin with '/'.
-                 */
+                // Check comments before the division operator.
                 if (currentCharacter == '/' &&
-                    i + 1 < SourceCode.Length &&
-                    SourceCode[i + 1] == '*')
+                    i + 1 < sourceCode.Length &&
+                    sourceCode[i + 1] == '*')
                 {
-                    ScanComment(SourceCode, ref i);
+                    ScanComment(sourceCode, ref i);
                     continue;
                 }
 
-                // String literal
+                // String literal.
                 if (currentCharacter == '"')
                 {
-                    ScanString(SourceCode, ref i);
+                    ScanString(sourceCode, ref i);
                     continue;
                 }
 
-                // Identifier or reserved keyword
-                if (char.IsLetter(currentCharacter))
+                // Identifier or reserved keyword.
+                if (IsEnglishLetter(currentCharacter))
                 {
-                    string lexeme = ScanIdentifier(SourceCode, ref i);
+                    string lexeme = ScanIdentifier(sourceCode, ref i);
                     FindTokenClass(lexeme);
                     continue;
                 }
 
-                // Integer or floating-point number
+                // Integer, decimal number or invalid digit-starting identifier.
                 if (char.IsDigit(currentCharacter))
                 {
-                    ScanNumber(SourceCode, ref i);
+                    ScanNumber(sourceCode, ref i);
                     continue;
                 }
 
-                /*
-                 * Check two-character operators before checking
-                 * single-character operators.
-                 *
-                 * Examples:
-                 * :=  <>  &&  ||
-                 */
-                if (i + 1 < SourceCode.Length)
+                // Two-character operators must be checked first.
+                if (i + 1 < sourceCode.Length)
                 {
-                    string twoCharacters =
-                        SourceCode.Substring(i, 2);
+                    string twoCharacters = sourceCode.Substring(i, 2);
 
                     if (Operators.ContainsKey(twoCharacters))
                     {
                         AddToken(
                             twoCharacters,
-                            Operators[twoCharacters]
-                        );
+                            Operators[twoCharacters]);
 
                         i++;
                         continue;
                     }
                 }
 
-                // Single-character operator
                 string currentLexeme = currentCharacter.ToString();
 
+                // Single-character operators.
                 if (Operators.ContainsKey(currentLexeme))
                 {
                     AddToken(
                         currentLexeme,
-                        Operators[currentLexeme]
-                    );
+                        Operators[currentLexeme]);
 
                     continue;
                 }
 
-                // Symbol such as ; , ( ) { }
+                // Symbols.
                 if (Symbols.ContainsKey(currentLexeme))
                 {
                     AddToken(
                         currentLexeme,
-                        Symbols[currentLexeme]
-                    );
+                        Symbols[currentLexeme]);
 
                     continue;
                 }
 
-                // Character does not belong to the Tiny language
-                Errors.Error_List.Add(
-                    "Unknown symbol: " + currentCharacter
-                );
+                // Unknown Tiny-language character.
+                Errors.AddError(
+                    "Unknown symbol: " + currentCharacter);
             }
 
             JASON_Compiler.TokenStream = Tokens;
@@ -278,25 +257,19 @@ namespace JASON_Compiler
         {
             int startIndex = index;
 
-            /*
-             * Identifier regular expression:
-             *
-             * letter(letter | digit)*
-             */
+            // Identifier = letter(letter | digit)*
             while (index < sourceCode.Length &&
-                   char.IsLetterOrDigit(sourceCode[index]))
+                   (IsEnglishLetter(sourceCode[index]) ||
+                    char.IsDigit(sourceCode[index])))
             {
                 index++;
             }
 
             string lexeme = sourceCode.Substring(
                 startIndex,
-                index - startIndex
-            );
+                index - startIndex);
 
-            // The for loop will increment the index again
             index--;
-
             return lexeme;
         }
 
@@ -306,7 +279,7 @@ namespace JASON_Compiler
         {
             int startIndex = index;
 
-            // Read the integer part
+            // Read the integer part.
             while (index < sourceCode.Length &&
                    char.IsDigit(sourceCode[index]))
             {
@@ -314,28 +287,46 @@ namespace JASON_Compiler
             }
 
             /*
-             * Optional decimal part:
-             *
-             * '.' followed by one or more digits
+             * Detect a malformed identifier that starts with digits.
+             * Example: 123x
              */
+            if (index < sourceCode.Length &&
+                IsEnglishLetter(sourceCode[index]))
+            {
+                while (index < sourceCode.Length &&
+                       (IsEnglishLetter(sourceCode[index]) ||
+                        char.IsDigit(sourceCode[index])))
+                {
+                    index++;
+                }
+
+                string invalidIdentifier = sourceCode.Substring(
+                    startIndex,
+                    index - startIndex);
+
+                Errors.AddError(
+                    "Invalid identifier: " + invalidIdentifier);
+
+                index--;
+                return;
+            }
+
+            // Optional decimal part.
             if (index < sourceCode.Length &&
                 sourceCode[index] == '.')
             {
                 index++;
 
-                // A digit must exist after the decimal point
+                // A decimal point must be followed by a digit.
                 if (index >= sourceCode.Length ||
                     !char.IsDigit(sourceCode[index]))
                 {
-                    string invalidNumber =
-                        sourceCode.Substring(
-                            startIndex,
-                            index - startIndex
-                        );
+                    string invalidNumber = sourceCode.Substring(
+                        startIndex,
+                        index - startIndex);
 
-                    Errors.Error_List.Add(
-                        "Invalid number: " + invalidNumber
-                    );
+                    Errors.AddError(
+                        "Invalid number: " + invalidNumber);
 
                     index--;
                     return;
@@ -348,12 +339,7 @@ namespace JASON_Compiler
                 }
             }
 
-            /*
-             * Detect a second decimal point.
-             *
-             * Example:
-             * 2.3.4
-             */
+            // Detect another decimal point, such as 12.5.8.
             if (index < sourceCode.Length &&
                 sourceCode[index] == '.')
             {
@@ -364,15 +350,34 @@ namespace JASON_Compiler
                     index++;
                 }
 
-                string invalidNumber =
-                    sourceCode.Substring(
-                        startIndex,
-                        index - startIndex
-                    );
+                string invalidNumber = sourceCode.Substring(
+                    startIndex,
+                    index - startIndex);
 
-                Errors.Error_List.Add(
-                    "Invalid number: " + invalidNumber
-                );
+                Errors.AddError(
+                    "Invalid number: " + invalidNumber);
+
+                index--;
+                return;
+            }
+
+            // Detect letters after a decimal value, such as 12.5abc.
+            if (index < sourceCode.Length &&
+                IsEnglishLetter(sourceCode[index]))
+            {
+                while (index < sourceCode.Length &&
+                       (IsEnglishLetter(sourceCode[index]) ||
+                        char.IsDigit(sourceCode[index])))
+                {
+                    index++;
+                }
+
+                string invalidToken = sourceCode.Substring(
+                    startIndex,
+                    index - startIndex);
+
+                Errors.AddError(
+                    "Invalid token: " + invalidToken);
 
                 index--;
                 return;
@@ -380,10 +385,9 @@ namespace JASON_Compiler
 
             string lexeme = sourceCode.Substring(
                 startIndex,
-                index - startIndex
-            );
+                index - startIndex);
 
-            FindTokenClass(lexeme);
+            AddToken(lexeme, Token_Class.Constant);
 
             index--;
         }
@@ -394,44 +398,45 @@ namespace JASON_Compiler
         {
             int startIndex = index;
 
-            // Skip the opening quotation mark
+            // Skip the opening quote.
             index++;
 
             while (index < sourceCode.Length &&
-                   sourceCode[index] != '"')
+                   sourceCode[index] != '"' &&
+                   sourceCode[index] != '\r' &&
+                   sourceCode[index] != '\n')
             {
                 index++;
             }
 
-            if (index >= sourceCode.Length)
+            // The line ended before a closing quote.
+            if (index >= sourceCode.Length ||
+                sourceCode[index] == '\r' ||
+                sourceCode[index] == '\n')
             {
-                string invalidString =
-                    sourceCode.Substring(startIndex);
+                string invalidString = sourceCode.Substring(
+                    startIndex,
+                    index - startIndex);
 
-                Errors.Error_List.Add(
-                    "Unclosed string: " + invalidString
-                );
+                Errors.AddError(
+                    "Unclosed string: " + invalidString);
 
-                // End scanning because the rest belongs to the string
-                index = sourceCode.Length;
+                /*
+                 * Move back one position so that the main loop
+                 * processes the line-ending character normally.
+                 */
+                index--;
                 return;
             }
 
-            /*
-             * Include both quotation marks in the stored lexeme.
-             *
-             * Example:
-             * "Hello World"
-             */
+            // Include both double quotes in the string lexeme.
             string lexeme = sourceCode.Substring(
                 startIndex,
-                index - startIndex + 1
-            );
+                index - startIndex + 1);
 
             AddToken(
                 lexeme,
-                Token_Class.StringLiteral
-            );
+                Token_Class.StringLiteral);
         }
 
         private void ScanComment(
@@ -440,7 +445,7 @@ namespace JASON_Compiler
         {
             int startIndex = index;
 
-            // Skip the opening /*
+            // Skip /*
             index += 2;
 
             bool commentClosed = false;
@@ -452,10 +457,7 @@ namespace JASON_Compiler
                 {
                     commentClosed = true;
 
-                    /*
-                     * Move to the slash of the closing sequence.
-                     * The for loop will move to the next character.
-                     */
+                    // Move to the '/' of the closing sequence.
                     index++;
                     break;
                 }
@@ -468,17 +470,17 @@ namespace JASON_Compiler
                 string invalidComment =
                     sourceCode.Substring(startIndex);
 
-                Errors.Error_List.Add(
-                    "Unclosed comment: " + invalidComment
-                );
+                Errors.AddError(
+                    "Unclosed comment: " + invalidComment);
 
+                /*
+                 * An unfinished comment owns the remainder of
+                 * the source program, so scanning ends here.
+                 */
                 index = sourceCode.Length;
             }
 
-            /*
-             * Correctly closed comments are recognized and ignored.
-             * They are not added to the token stream.
-             */
+            // Valid comments are ignored and produce no token.
         }
 
         private void FindTokenClass(string lexeme)
@@ -488,13 +490,12 @@ namespace JASON_Compiler
                 return;
             }
 
-            // Check keyword before identifier
+            // Keywords must be checked before identifiers.
             if (ReservedWords.ContainsKey(lexeme))
             {
                 AddToken(
                     lexeme,
-                    ReservedWords[lexeme]
-                );
+                    ReservedWords[lexeme]);
 
                 return;
             }
@@ -503,8 +504,7 @@ namespace JASON_Compiler
             {
                 AddToken(
                     lexeme,
-                    Operators[lexeme]
-                );
+                    Operators[lexeme]);
 
                 return;
             }
@@ -513,8 +513,7 @@ namespace JASON_Compiler
             {
                 AddToken(
                     lexeme,
-                    Symbols[lexeme]
-                );
+                    Symbols[lexeme]);
 
                 return;
             }
@@ -523,8 +522,7 @@ namespace JASON_Compiler
             {
                 AddToken(
                     lexeme,
-                    Token_Class.Identifier
-                );
+                    Token_Class.Identifier);
 
                 return;
             }
@@ -533,15 +531,13 @@ namespace JASON_Compiler
             {
                 AddToken(
                     lexeme,
-                    Token_Class.Constant
-                );
+                    Token_Class.Constant);
 
                 return;
             }
 
-            Errors.Error_List.Add(
-                "Invalid token: " + lexeme
-            );
+            Errors.AddError(
+                "Invalid token: " + lexeme);
         }
 
         private void AddToken(
@@ -563,21 +559,15 @@ namespace JASON_Compiler
                 return false;
             }
 
-            /*
-             * An identifier must begin with a letter.
-             */
-            if (!char.IsLetter(lexeme[0]))
+            if (!IsEnglishLetter(lexeme[0]))
             {
                 return false;
             }
 
-            /*
-             * The remaining characters must be
-             * letters or digits.
-             */
             for (int i = 1; i < lexeme.Length; i++)
             {
-                if (!char.IsLetterOrDigit(lexeme[i]))
+                if (!IsEnglishLetter(lexeme[i]) &&
+                    !char.IsDigit(lexeme[i]))
                 {
                     return false;
                 }
@@ -606,16 +596,12 @@ namespace JASON_Compiler
 
                 if (currentCharacter == '.')
                 {
-                    // More than one decimal point
                     if (decimalPointFound)
                     {
                         return false;
                     }
 
-                    /*
-                     * The decimal point cannot be the first or
-                     * last character.
-                     */
+                    // A dot cannot start or end the number.
                     if (i == 0 || i == lexeme.Length - 1)
                     {
                         return false;
@@ -629,6 +615,12 @@ namespace JASON_Compiler
             }
 
             return true;
+        }
+
+        private bool IsEnglishLetter(char character)
+        {
+            return (character >= 'a' && character <= 'z') ||
+                   (character >= 'A' && character <= 'Z');
         }
     }
 }

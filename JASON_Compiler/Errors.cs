@@ -1,13 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JASON_Compiler
 {
     public static class Errors
     {
-       public static List<string> Error_List = new List<string>();
+        // Stores all lexical errors found during scanning
+        public static List<string> Error_List = new List<string>();
+
+        // Add a new error message
+        public static void AddError(string message)
+        {
+            Error_List.Add(message);
+        }
+
+        // Clear all previous errors before scanning a new program
+        public static void ClearErrors()
+        {
+            Error_List.Clear();
+        }
     }
 }
